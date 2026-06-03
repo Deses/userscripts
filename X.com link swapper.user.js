@@ -11,8 +11,8 @@
 // @match        https://pro.x.com/*
 // @icon         https://abs.twimg.com/favicons/twitter.2.ico
 // @license      BSD-3-Clause
-// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.js
-// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.js
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.user.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.user.js
 // ==/UserScript==
 (function () {
   "use strict";

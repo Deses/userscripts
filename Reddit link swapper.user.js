@@ -8,8 +8,8 @@
 // @icon         https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
 // @license      BSD-3-Clause
 // @run-at       document-start
-// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.js
-// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.js
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.user.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.user.js
 // ==/UserScript==
 
 (function () {

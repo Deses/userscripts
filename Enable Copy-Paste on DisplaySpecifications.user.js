@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         Enable Copy-Paste on DisplaySpecifications
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/Deses/userscripts
 // @version      1.0
 // @description  Re-enables text selection and copy-paste on displayspecifications.com
-// @author       You
+// @author       Deses
 // @match        *://www.displayspecifications.com/*
 // @match        *://displayspecifications.com/*
+// @icon         https://www.displayspecifications.com/favicon.ico
+// @license      BSD-3-Clause
 // @grant        none
 // @run-at       document-start
-// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.js
-// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.js
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.user.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.user.js
 // ==/UserScript==
 
 (function () {
