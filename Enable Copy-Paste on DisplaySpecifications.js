@@ -8,6 +8,8 @@
 // @match        *://displayspecifications.com/*
 // @grant        none
 // @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Enable%20Copy-Paste%20on%20DisplaySpecifications.js
 // ==/UserScript==
 
 (function () {
