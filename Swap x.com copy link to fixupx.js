@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Swap x.com copy link to fixupx
 // @namespace    https://github.com/ReeceDonovan/TwitterLinkSwapper
-// @version      1.4
+// @version      1.5
 // @description  Hijack share button to copy fixupx link directly, strip params, force /en
 // @author       ReeceDonovan & Deses
 // @match        https://twitter.com/*
@@ -11,11 +11,13 @@
 // @match        https://pro.x.com/*
 // @icon         https://abs.twimg.com/favicons/twitter.2.ico
 // @license      BSD-3-Clause
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20x.com%20copy%20link%20to%20fixupx.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20x.com%20copy%20link%20to%20fixupx.js
 // ==/UserScript==
 (function () {
   "use strict";
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
+  // -- Toast -----------------------------------------------------------------
 
   let toastEl = null;
   let toastTimer = null;
@@ -65,7 +67,7 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("ls-visible"), durationMs);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // -- Helpers ---------------------------------------------------------------
 
   // Identify the share button by its specific SVG upload-arrow path
   function isShareButton(btn) {
@@ -95,7 +97,7 @@
       });
   }
 
-  // ── Share button interception ─────────────────────────────────────────────
+  // -- Share button interception ---------------------------------------------
   // Use capture phase so we fire before X's own listeners open the menu
 
   document.addEventListener(
@@ -120,7 +122,7 @@
     true // capture phase
   );
 
-  // ── Fallback: manual copy of a twitter/x URL (v1.1 behaviour) ────────────
+  // -- Fallback: manual copy of a twitter/x URL (v1.1 behaviour) -------------
 
   document.addEventListener("copy", (event) => {
     const text = (
@@ -141,7 +143,7 @@
     }
   });
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // -- Init ------------------------------------------------------------------
 
   if (document.head) injectStyles();
   else document.addEventListener("DOMContentLoaded", injectStyles);
