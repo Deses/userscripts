@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Swap x.com copy link to fixupx
-// @namespace    https://github.com/ReeceDonovan/TwitterLinkSwapper
-// @version      1.5
-// @description  Hijack share button to copy fixupx link directly, strip params, force /en
+// @name         X.com link swapper
+// @namespace    https://github.com/Deses/userscripts
+// @version      1.6
+// @description  Hijack share button to copy an embed link directly, strip params
 // @author       ReeceDonovan & Deses
 // @match        https://twitter.com/*
 // @match        https://mobile.twitter.com/*
@@ -11,11 +11,16 @@
 // @match        https://pro.x.com/*
 // @icon         https://abs.twimg.com/favicons/twitter.2.ico
 // @license      BSD-3-Clause
-// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20x.com%20copy%20link%20to%20fixupx.js
-// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20x.com%20copy%20link%20to%20fixupx.js
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/X.com%20link%20swapper.js
 // ==/UserScript==
 (function () {
   "use strict";
+
+  // -- Config ----------------------------------------------------------------
+
+  const TARGET_DOMAIN = "fixupx.com"; // e.g. "fixupx.com", "fxtwitter.com", "fixvx.com", "vxtwitter.com"
+  const LANGUAGE = "en";              // 2-letter code appended as /en, or "" to skip
 
   // -- Toast -----------------------------------------------------------------
 
@@ -74,7 +79,7 @@
     return !!btn.querySelector('path[d^="M12 2.59l5.7 5.7"]');
   }
 
-  function buildFixupUrl(href) {
+  function buildEmbedUrl(href) {
     let path;
     try {
       path = new URL(href, "https://x.com").pathname;
@@ -84,13 +89,14 @@
     // Truncate anything after /status/<id> (/quotes, /retweets, /likes, etc.)
     const match = path.match(/^(\/[^/]+\/status\/\d+)/);
     path = match ? match[1] : path;
-    return `https://fixupx.com${path}/en`;
+    const lang = LANGUAGE ? `/${LANGUAGE}` : "";
+    return `https://${TARGET_DOMAIN}${path}${lang}`;
   }
 
   function copyAndToast(url) {
     navigator.clipboard
       .writeText(url)
-      .then(() => showToast("🔗 Copied as fixupx.com"))
+      .then(() => showToast(`🔗 Copied as ${TARGET_DOMAIN}`))
       .catch((err) => {
         console.error("[LinkSwapper] Clipboard write failed:", err);
         showToast("⚠️ Copy failed");
@@ -110,14 +116,14 @@
       const article = btn.closest('[data-testid="tweet"]') || btn.closest("article");
       if (!article) return;
 
-      // Grab the status link from the article — pick the deepest /status/ href
+      // Grab the status link from the article - pick the deepest /status/ href
       const statusAnchor = [...article.querySelectorAll('a[href*="/status/"]')].pop();
       if (!statusAnchor) return;
 
       event.preventDefault();
       event.stopPropagation();
 
-      copyAndToast(buildFixupUrl(statusAnchor.getAttribute("href")));
+      copyAndToast(buildEmbedUrl(statusAnchor.getAttribute("href")));
     },
     true // capture phase
   );
@@ -137,9 +143,9 @@
       const parsed = new URL(text);
       parsed.search = "";
       parsed.hash = "";
-      copyAndToast(buildFixupUrl(parsed.pathname));
+      copyAndToast(buildEmbedUrl(parsed.pathname));
     } catch {
-      copyAndToast(buildFixupUrl(text));
+      copyAndToast(buildEmbedUrl(text));
     }
   });
 

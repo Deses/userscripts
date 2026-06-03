@@ -1,19 +1,23 @@
 // ==UserScript==
-// @name         Swap reddit.com copy link to rxddit
-// @namespace    https://github.com/Deses/RedditLinkSwapper
-// @version      2.0
-// @description  Hijack share button to copy rxddit link directly, strip params
+// @name         Reddit link swapper
+// @namespace    https://github.com/Deses/userscripts
+// @version      2.1
+// @description  Hijack share button to copy an embed link directly, strip params
 // @author       Deses
 // @match        https://www.reddit.com/*
 // @icon         https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
 // @license      BSD-3-Clause
 // @run-at       document-start
-// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20reddit.com%20copy%20link%20to%20rxddit.js
-// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Swap%20reddit.com%20copy%20link%20to%20rxddit.js
+// @updateURL    https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.js
+// @downloadURL  https://raw.githubusercontent.com/Deses/userscripts/refs/heads/main/Reddit%20link%20swapper.js
 // ==/UserScript==
 
 (function () {
     "use strict";
+
+    // -- Config --------------------------------------------------------------
+
+    const TARGET_DOMAIN = "vxreddit.com"; // e.g. "rxddit.com", "vxreddit.com"
 
     // -- Toast ---------------------------------------------------------------
 
@@ -67,10 +71,10 @@
 
     // -- Helpers -------------------------------------------------------------
 
-    function buildRxdditUrl(href) {
+    function buildEmbedUrl(href) {
         try {
             const url = new URL(href, "https://www.reddit.com");
-            url.hostname = "rxddit.com";
+            url.hostname = TARGET_DOMAIN;
             url.search = "";
             url.hash = "";
             return url.origin + url.pathname;
@@ -98,10 +102,10 @@
     function copyAndToast(url) {
         navigator.clipboard
             .writeText(url)
-            .then(() => showToast("Copied as rxddit.com"))
+            .then(() => showToast(`🔗 Copied as ${TARGET_DOMAIN}`))
             .catch((err) => {
                 console.error("[LinkSwapper] Clipboard write failed:", err);
-                showToast("Copy failed");
+                showToast("⚠️ Copy failed");
             });
     }
 
@@ -114,19 +118,19 @@
             const path = event.composedPath();
             const btn = path.find(el => el instanceof Element && el.matches('button[aria-haspopup="true"]'));
             const inShareHost = path.some(el => el instanceof Element && el.matches("shreddit-post-share-button"));
-            // console.log("[rxddit] path tags:", path.map(el => el.tagName || el).join(", "));
-            // console.log("[rxddit] btn:", btn, "inShareHost:", inShareHost);
+            // console.log("[reddit-swapper] path tags:", path.map(el => el.tagName || el).join(", "));
+            // console.log("[reddit-swapper] btn:", btn, "inShareHost:", inShareHost);
             if (!btn || !inShareHost) return;
 
             const href = getPostUrl(path);
-            // console.log("[rxddit] href:", href, "-> rxddit:", buildRxdditUrl(href));
+            // console.log("[reddit-swapper] href:", href, "-> embed:", buildEmbedUrl(href));
             if (!href) return;
 
             event.preventDefault();
             event.stopImmediatePropagation();
-            // console.log("[rxddit] stopped propagation, copying");
+            // console.log("[reddit-swapper] stopped propagation, copying");
 
-            copyAndToast(buildRxdditUrl(href));
+            copyAndToast(buildEmbedUrl(href));
         },
         true
     );
@@ -141,7 +145,7 @@
         try {
             const url = new URL(text);
             if (url.hostname === "www.reddit.com") {
-                url.hostname = "rxddit.com";
+                url.hostname = TARGET_DOMAIN;
                 url.search = "";
                 url.hash = "";
                 return originalWriteText(url.origin + url.pathname);
