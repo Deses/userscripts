@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit link swapper
 // @namespace    https://github.com/Deses/userscripts
-// @version      2.1
+// @version      2.2
 // @description  Hijack share button to copy an embed link directly, strip params
 // @author       Deses
 // @match        https://www.reddit.com/*
@@ -17,7 +17,7 @@
 
     // -- Config --------------------------------------------------------------
 
-    const TARGET_DOMAIN = "vxreddit.com"; // e.g. "rxddit.com", "vxreddit.com"
+    const TARGET_DOMAIN = "fxreddit.seria.moe"; // e.g. "rxddit.com", "vxreddit.com", "fxreddit.seria.moe"
 
     // -- Toast ---------------------------------------------------------------
 
