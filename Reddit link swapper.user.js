@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit link swapper
 // @namespace    https://github.com/Deses/userscripts
-// @version      2.2
+// @version      2.3
 // @description  Hijack share button to copy an embed link directly, strip params
 // @author       Deses
 // @match        https://www.reddit.com/*
@@ -116,7 +116,12 @@
         "click",
         (event) => {
             const path = event.composedPath();
-            const btn = path.find(el => el instanceof Element && el.matches('button[aria-haspopup="true"]'));
+            const btn = path.find(
+                el =>
+                    el instanceof Element &&
+                    el.tagName === "BUTTON" &&
+                    (el.hasAttribute("aria-haspopup") || el.getAttribute("aria-label") === "Share")
+            );
             const inShareHost = path.some(el => el instanceof Element && el.matches("shreddit-post-share-button"));
             // console.log("[reddit-swapper] path tags:", path.map(el => el.tagName || el).join(", "));
             // console.log("[reddit-swapper] btn:", btn, "inShareHost:", inShareHost);
