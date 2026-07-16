@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Reddit link swapper
 // @namespace    https://github.com/Deses/userscripts
-// @version      2.3
-// @description  Hijack share button to copy an embed link directly, strip params
+// @version      2.4
+// @description  Hijack share button to copy an embed link directly, strip params; add rapidsave download button
 // @author       Deses
 // @match        https://www.reddit.com/*
 // @icon         https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
@@ -51,6 +51,24 @@
             opacity: 1;
             transform: translateX(-50%) translateY(0);
           }
+          /* Fallback styling, only used when Reddit's own share button markup
+             couldn't be found/cloned for a given post. */
+          .ls-download-btn-fallback {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            margin-right: 4px;
+            border: none;
+            border-radius: 9999px;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+          }
+          .ls-download-btn-fallback:hover {
+            background: rgba(128, 128, 128, 0.2);
+          }
         `;
         document.head.appendChild(style);
     }
@@ -80,6 +98,18 @@
             return url.origin + url.pathname;
         } catch {
             return href;
+        }
+    }
+
+    function buildRapidsaveUrl(href) {
+        try {
+            const url = new URL(href, "https://www.reddit.com");
+            url.hostname = "www.reddit.com";
+            url.search = "";
+            url.hash = "";
+            return "https://rapidsave.com/info?url=" + encodeURIComponent(url.origin + url.pathname);
+        } catch {
+            return null;
         }
     }
 
@@ -159,8 +189,99 @@
         return originalWriteText(text);
     };
 
+    // -- Download button (rapidsave, original url) ---------------------------
+    // Lucide "download" icon (MIT licensed), inlined so nothing is hotlinked.
+    const DOWNLOAD_ICON_SVG =
+        '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+
+    function resolvePostHref(shareEl) {
+        const shareHref = shareEl.getAttribute("share-href");
+        if (shareHref) return shareHref;
+
+        const postEl = shareEl.closest("shreddit-post");
+        const permalink = postEl && postEl.getAttribute("permalink");
+        if (permalink) return permalink;
+
+        return null;
+    }
+
+    function findRealShareButton(shareEl) {
+        return (shareEl.shadowRoot && shareEl.shadowRoot.querySelector("button")) || shareEl.querySelector("button");
+    }
+
+    function makeDownloadButton(shareEl) {
+        const sourceBtn = findRealShareButton(shareEl);
+        let btn;
+
+        if (sourceBtn) {
+            // Clone Reddit's own share button so classes/layout match the native UI,
+            // then swap the icon and label for our download action.
+            btn = sourceBtn.cloneNode(true);
+            btn.removeAttribute("id");
+
+            const svg = btn.querySelector("svg");
+            if (svg) svg.outerHTML = DOWNLOAD_ICON_SVG;
+
+            btn.querySelectorAll("*").forEach((node) => {
+                node.childNodes.forEach((child) => {
+                    if (child.nodeType === Node.TEXT_NODE && child.textContent.trim() === "Share") {
+                        child.textContent = child.textContent.replace("Share", "Download");
+                    }
+                });
+            });
+        } else {
+            btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "ls-download-btn-fallback";
+            btn.innerHTML = DOWNLOAD_ICON_SVG;
+        }
+
+        if (btn.hasAttribute("aria-label")) btn.setAttribute("aria-label", "Download");
+        btn.title = "Download original on rapidsave.com";
+
+        btn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const href = resolvePostHref(shareEl);
+            const rapidsaveUrl = href && buildRapidsaveUrl(href);
+            if (!rapidsaveUrl) {
+                showToast("⚠️ Could not resolve url");
+                return;
+            }
+            window.open(rapidsaveUrl, "_blank", "noopener");
+        });
+        return btn;
+    }
+
+    function insertDownloadButtons(root = document) {
+        const shareEls = root.querySelectorAll("shreddit-post-share-button:not([data-ls-download])");
+        shareEls.forEach((shareEl) => {
+            shareEl.setAttribute("data-ls-download", "1");
+            shareEl.insertAdjacentElement("beforebegin", makeDownloadButton(shareEl));
+        });
+    }
+
+    function observeForShareButtons() {
+        insertDownloadButtons();
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.addedNodes.length) {
+                    insertDownloadButtons(document);
+                    break;
+                }
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     // -- Init ----------------------------------------------------------------
 
     if (document.head) injectStyles();
     else document.addEventListener("DOMContentLoaded", injectStyles);
+
+    if (document.body) observeForShareButtons();
+    else document.addEventListener("DOMContentLoaded", observeForShareButtons);
 })();
