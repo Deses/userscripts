@@ -1,2 +1,1 @@
-# userscripts
-Tampermonkey scripts I can't live without
+Userscripts I can't live without! Use with https://violentmonkey.github.io/
