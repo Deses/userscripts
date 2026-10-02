@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X.com link swapper
 // @namespace    https://github.com/Deses/userscripts
-// @version      1.7
+// @version      1.8
 // @description  Hijack share button to copy an embed link directly, strip params; add twitterwebviewer.com download button
 // @author       ReeceDonovan & Deses
 // @match        https://twitter.com/*
@@ -19,7 +19,7 @@
 
   // -- Config ----------------------------------------------------------------
 
-  const TARGET_DOMAIN = "fixupx.com"; // e.g. "fixupx.com", "fxtwitter.com", "fixvx.com", "vxtwitter.com"
+  const TARGET_DOMAIN = "fixvx.com"; // e.g. "fixupx.com", "fxtwitter.com", "fixvx.com", "vxtwitter.com"
   const LANGUAGE = "en";              // 2-letter code appended as /en, or "" to skip
 
   // -- Toast -----------------------------------------------------------------
