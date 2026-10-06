@@ -118,7 +118,7 @@
 
 
 
-// @version      14.0.3
+// @version      14.0.4
 // @releaseDate  2025-01-29T20:49:59.572Z
 // @author       bypass.city team
 // @connect      bypass.city
@@ -203,8 +203,6 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
       await sleep(1);
       WrappedSet("bypass.data", data);
       window.open(redirectURL, "_self", "noopener,noreferrer");
-      await sleep(200);
-      window.open(redirectURL, "_blank");
     });
   };
   var injectScriptInfo = () => {
@@ -229,7 +227,6 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
 }
 
 .notification {
-  position: block;
   margin: 10px;
   padding: 10px;
   padding-right: 20px;
@@ -413,10 +410,15 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
   };
 
   // src/ping.ts
+  var PING_TTL = 5 * 60 * 1e3;
   var ping = async () => {
+    const cachedAt = await WrappedGet("ping.cache");
+    if (cachedAt && Date.now() - cachedAt < PING_TTL) {
+      return true;
+    }
     try {
       const data = await jsonFetch(
-        `${"https://bypass.city"}/.well-known/ping.json`,
+        `${"https://adbypass.org"}/.well-known/ping.json`,
         {
           method: "GET",
           headers: {
@@ -424,6 +426,9 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
           }
         }
       );
+      if (data.ping) {
+        await WrappedSet("ping.cache", Date.now());
+      }
       return data.ping;
     } catch (e) {
       return false;
@@ -671,7 +676,7 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
     },
     {
       name: "sub2unlock",
-      regex: /https?:\/\/sub2unlock\.com/i,
+      regex: /^https?:\/\/sub2unlock\.com/i,
       userscript_regex: "*://sub2unlock.com/*",
       valid_url_regex: /^https?:\/\/sub2unlock\.com\/[a-zA-Z0-9-_]+\/?$/,
       url_base: "https://sub2unlock.com"
@@ -699,7 +704,7 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
     },
     {
       name: "v.gd",
-      regex: /https?:\/\/v\.gd/i,
+      regex: /^https?:\/\/v\.gd/i,
       userscript_regex: "*://v.gd/*",
       valid_url_regex: /^https?:\/\/v\.gd\/[a-zA-Z0-9-_]+\/?$/,
       url_base: "https://v.gd"
@@ -710,12 +715,9 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
   // src/commonResolver.ts
   var linksListner = async () => {
     const matchData = match(window.location.href);
-    console.log(matchData);
     if (!matchData.match)
       return;
     const bypassData = await WrappedGet("bypass.data");
-    console.log(bypassData);
-    console.log(matchData.valid_url.test(window.location.href));
     if (bypassData) {
       notify({});
       await sleep(3e3);
@@ -723,13 +725,11 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
       await UserScript.deleteValue("bypass.data");
       await sleep(1);
       window.open(targetUrl, "_self");
-      await sleep(200);
-      window.open(targetUrl, "_blank");
     } else if (matchData.valid_url.test(window.location.href)) {
-      let redirectBase = "https://bypass.city";
+      let redirectBase = "https://adbypass.org";
       const isPing = await ping();
       if (!isPing) {
-        redirectBase = "https://adbypass.org";
+        redirectBase = "https://bypass.city";
       }
       notify({});
       await sleep(2e3);
@@ -741,8 +741,6 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
       bypassCityUrl.searchParams.set("userscript", "true");
       bypassCityUrl.searchParams.set("userscript-version", config.version);
       window.open(bypassCityUrl.href, "_self");
-      await sleep(200);
-      window.open(bypassCityUrl.href, "_blank");
     }
   };
   var match = (url) => {
@@ -764,10 +762,10 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
   // src/speedyLinksIntercept.ts
   var SPEEDY_LINKS_RE = /^https?:\/\/(www\.)?(speedy-links|rapid-links)\.com\/.+/i;
   var launchBypassForUrl = async (targetUrl, newTab) => {
-    let redirectBase = "https://bypass.city";
+    let redirectBase = "https://adbypass.org";
     const isPing = await ping();
     if (!isPing) {
-      redirectBase = "https://adbypass.org";
+      redirectBase = "https://bypass.city";
     }
     const matchData = match(targetUrl);
     await UserScript.deleteValue("bypass.data");
@@ -786,6 +784,9 @@ this URL to always have the latest version: https://api2.adbypass.org/userscript
         return;
       }
       if (!SPEEDY_LINKS_RE.test(anchor.href)) {
+        return;
+      }
+      if (event.type === "auxclick" && event.button !== 1) {
         return;
       }
       const newTab = event.type === "auxclick" || event.button === 1 || event.ctrlKey || event.metaKey || anchor.target === "_blank";
