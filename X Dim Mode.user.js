@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         X Dim Mode
 // @namespace    https://github.com/Deses/userscripts
-// @version      2.0
-// @description  Restores the Dim (dark blue) background option to X/Twitter display settings
+// @version      2.1
+// @description  Restores the Dim (dark blue) background option to X/Twitter display settings, with a light-to-black tone slider
 // @author       flartiny (original), Deses
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -27,48 +27,48 @@
   // -- Config ----------------------------------------------------------------
 
   const STORAGE_KEY = "enabled";
+  const LEVEL_KEY = "tone";
+  const DIM_LEVEL = 50;
+  const MAX_LEVEL = 100;
+  const LIGHT_BG_LUMINANCE = 0.18;
   const STYLE_ID = "x-dim-base";
+  const LEVEL_STYLE_ID = "x-dim-level";
+  const SLIDER_ID = "x-dim-slider";
+  const PICKER_ID = "x-dim-picker-group";
   const DIM_BTN_ID = "x-dim-option-btn";
   const DIM_CLASS = "x-dim-active";
   const DIMMED_CLASS = "xdm-dimmed";
   const ELEVATED_CLASS = "xdm-dimmed-elevated";
   const RESCAN_DELAYS_MS = [500, 1500, 3000, 5000];
-  const NIGHT_MODE_LIGHTS_OUT = 2;
   const ACCENT = "rgb(29, 155, 240)";
 
   // -- CSS -------------------------------------------------------------------
 
   const BASE_CSS = `
     html.${DIM_CLASS} {
-      --xdm-bg: rgb(21, 32, 43);
-      --xdm-bg-hover: rgb(30, 39, 50);
-      --xdm-bg-elevated: rgb(39, 51, 64);
-      --xdm-backdrop: rgba(21, 32, 43, .85);
-      --xdm-text: rgb(139, 152, 165);
-      --xdm-border: rgb(56, 68, 77);
       scrollbar-color: var(--xdm-border) var(--xdm-bg);
     }
 
     html.${DIM_CLASS} body.LightsOut {
       --color: var(--xdm-text);
-      --border: 206 16% 26%;
-      --input: 206 16% 26%;
+      --border: var(--xdm-border-hsl);
+      --input: var(--xdm-border-hsl);
       --border-color: var(--xdm-border);
     }
 
     /* Chat / DM interface (Tailwind + shadcn/Radix) */
     html.${DIM_CLASS}[data-theme="dark"],
     html.${DIM_CLASS} [data-theme="dark"] {
-      --background: 215 29% 13%;
-      --border: 206 16% 26%;
-      --input: 206 16% 26%;
-      --muted-foreground: 206 16% 55%;
-      --color-background: 215 29% 13%;
-      --color-gray-0: 215 29% 13%;
-      --color-gray-50: 206 16% 26%;
-      --color-gray-100: 206 16% 26%;
-      --color-gray-700: 206 16% 60%;
-      --color-gray-800: 206 16% 50%;
+      --background: var(--xdm-bg-hsl);
+      --border: var(--xdm-border-hsl);
+      --input: var(--xdm-border-hsl);
+      --muted-foreground: var(--xdm-text-hsl);
+      --color-background: var(--xdm-bg-hsl);
+      --color-gray-0: var(--xdm-bg-hsl);
+      --color-gray-50: var(--xdm-border-hsl);
+      --color-gray-100: var(--xdm-border-hsl);
+      --color-gray-700: var(--xdm-text-hsl);
+      --color-gray-800: var(--xdm-text-hsl);
     }
 
     html.${DIM_CLASS} body {
@@ -171,45 +171,127 @@
     }
   `;
 
+  // -- Palette ---------------------------------------------------------------
+
+  const STOPS = {
+    bg: [[53, 66, 82], [21, 32, 43], [0, 0, 0]],
+    hover: [[63, 77, 94], [30, 39, 50], [22, 24, 28]],
+    elevated: [[75, 90, 108], [39, 51, 64], [32, 35, 39]],
+    border: [[85, 100, 116], [56, 68, 77], [47, 51, 54]],
+    backdrop: [[53, 66, 82, 0.85], [21, 32, 43, 0.85], [0, 0, 0, 0.65]],
+  };
+  const SOFT_TEXT = [165, 177, 190];
+  const DIM_TEXT = [139, 152, 165];
+  const LIGHTS_OUT_TEXT = [113, 118, 123];
+
+  function mix(from, to, amount) {
+    return [0, 1, 2, 3].map((i) => {
+      const a = from[i] ?? 1;
+      return a + ((to[i] ?? 1) - a) * amount;
+    });
+  }
+
+  function colorAt(stops, level) {
+    const [light, dim, black] = stops;
+    if (level <= DIM_LEVEL) {
+      return mix(light, dim, level / DIM_LEVEL);
+    }
+    return mix(dim, black, (level - DIM_LEVEL) / (MAX_LEVEL - DIM_LEVEL));
+  }
+
+  function toCss(color) {
+    const [r, g, b, a] = color;
+    return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Number(a.toFixed(3))})`;
+  }
+
+  function toHsl([r, g, b]) {
+    const [rn, gn, bn] = [r, g, b].map((v) => v / 255);
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const lightness = (max + min) / 2;
+    const delta = max - min;
+    if (delta === 0) {
+      return `0 0% ${Math.round(lightness * 100)}%`;
+    }
+    const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    let hue;
+    if (max === rn) {
+      hue = ((gn - bn) / delta) % 6;
+    } else if (max === gn) {
+      hue = (bn - rn) / delta + 2;
+    } else {
+      hue = (rn - gn) / delta + 4;
+    }
+    return `${Math.round((hue * 60 + 360) % 360)} ${Math.round(saturation * 100)}% ${Math.round(lightness * 100)}%`;
+  }
+
+  function luminance([r, g, b]) {
+    const [rl, gl, bl] = [r, g, b].map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+  }
+
+  function secondaryTextAt(level) {
+    return colorAt([SOFT_TEXT, DIM_TEXT, LIGHTS_OUT_TEXT], level);
+  }
+
+  function buildPaletteCss(level) {
+    const bg = colorAt(STOPS.bg, level);
+    const border = colorAt(STOPS.border, level);
+    const text = secondaryTextAt(level);
+    return `
+      html.${DIM_CLASS} {
+        --xdm-bg: ${toCss(bg)};
+        --xdm-bg-hover: ${toCss(colorAt(STOPS.hover, level))};
+        --xdm-bg-elevated: ${toCss(colorAt(STOPS.elevated, level))};
+        --xdm-backdrop: ${toCss(colorAt(STOPS.backdrop, level))};
+        --xdm-border: ${toCss(border)};
+        --xdm-text: ${toCss(text)};
+        --xdm-bg-hsl: ${toHsl(bg)};
+        --xdm-border-hsl: ${toHsl(border)};
+        --xdm-text-hsl: ${toHsl(text)};
+      }
+    `;
+  }
+
   const CHECKMARK_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" class="r-4qtqp9 r-yyyyoo r-dnmrzs r-bnwqim r-lrvibr r-m6rgpd r-jwli3a r-1hjwoze r-12ym1je"><g><path d="M9.64 18.952l-5.55-4.861 1.317-1.504 3.951 3.459 8.459-10.948L19.4 6.32 9.64 18.952z"></path></g></svg>`;
 
   // -- State -----------------------------------------------------------------
 
   const root = document.documentElement;
   let enabled = GM_getValue(STORAGE_KEY, true);
-  let bodyObserver = null;
+  let level = GM_getValue(LEVEL_KEY, DIM_LEVEL);
   let scanFrame = 0;
   let injectFrame = 0;
-  let switchingToLightsOut = false;
+  let bodyObserved = false;
   const pendingNodes = new Set();
 
   // -- Theme detection -------------------------------------------------------
 
-  function readNightMode() {
-    const match = document.cookie.match(/(?:^|;\s*)night_mode=(\d)/);
-    return match ? Number(match[1]) : null;
-  }
-
-  function xHasRendered() {
-    const reactRoot = document.getElementById("react-root");
-    return Boolean(reactRoot && reactRoot.childElementCount);
+  function readXBodyBackground() {
+    const channels = document.body && document.body.style.backgroundColor.match(/\d+/g);
+    return channels ? channels.slice(0, 3).map(Number) : null;
   }
 
   function isLightsOut() {
-    if (document.body && document.body.classList.contains("LightsOut")) {
-      return true;
+    const xBackground = readXBodyBackground();
+    if (xBackground) {
+      return luminance(xBackground) < LIGHT_BG_LUMINANCE;
     }
-    if (document.body && xHasRendered()) {
-      return false;
-    }
-    const nightMode = readNightMode();
-    if (nightMode !== null) {
-      return nightMode === NIGHT_MODE_LIGHTS_OUT;
+    const theme = root.getAttribute("data-x-theme");
+    if (theme) {
+      return theme === "dark";
     }
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
 
   // -- Dim on/off ------------------------------------------------------------
+
+  function applyLevel() {
+    document.getElementById(LEVEL_STYLE_ID).textContent = buildPaletteCss(level);
+  }
 
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) {
@@ -218,7 +300,19 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = BASE_CSS;
-    (document.head || root).appendChild(style);
+    const levelStyle = document.createElement("style");
+    levelStyle.id = LEVEL_STYLE_ID;
+    (document.head || root).append(style, levelStyle);
+    applyLevel();
+  }
+
+  function setLevel(value, persist) {
+    level = value;
+    ensureStyle();
+    applyLevel();
+    if (persist) {
+      GM_setValue(LEVEL_KEY, value);
+    }
   }
 
   function refresh() {
@@ -247,16 +341,21 @@
     syncSettingsButtons();
   }
 
-  function startBodyObserver() {
-    if (bodyObserver || !document.body) {
+  function onThemeAttributeChange() {
+    refresh();
+    syncSettingsButtons();
+  }
+
+  function observeRootAttributes() {
+    new MutationObserver(onThemeAttributeChange).observe(root, { attributes: true, attributeFilter: ["data-x-theme", "class"] });
+  }
+
+  function observeBodyStyle() {
+    if (bodyObserved || !document.body) {
       return;
     }
-    bodyObserver = new MutationObserver(() => {
-      refresh();
-      syncSettingsButtons();
-    });
-    bodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    refresh();
+    bodyObserved = true;
+    new MutationObserver(onThemeAttributeChange).observe(document.body, { attributes: true, attributeFilter: ["style"] });
   }
 
   // -- Black background scanner ----------------------------------------------
@@ -344,84 +443,180 @@
 
   function syncSettingsButtons() {
     const dimBtn = document.getElementById(DIM_BTN_ID);
-    const radiogroup = dimBtn && dimBtn.closest('[role="radiogroup"]');
-    if (!radiogroup) {
+    const picker = dimBtn && dimBtn.closest('[role="radiogroup"]');
+    if (!picker) {
       return;
     }
-    const buttons = [...radiogroup.querySelectorAll(":scope > div")];
-    const defaultBtn = buttons[0];
-    const lightsOutBtn = buttons[buttons.length - 1];
-    const dimShown = enabled && isLightsOut();
+    const [lightBtn, , darkBtn] = picker.querySelectorAll(":scope > div");
+    const xIsDark = isLightsOut();
+    const dimShown = enabled && xIsDark;
 
-    for (const btn of buttons) {
+    const slider = document.getElementById(SLIDER_ID);
+    if (slider) {
+      slider.style.opacity = dimShown ? "1" : "0.4";
+      for (const control of slider.querySelectorAll("input, button")) {
+        control.disabled = !dimShown;
+      }
+    }
+
+    for (const btn of picker.querySelectorAll(":scope > div")) {
       setUnselected(btn);
     }
-    if (dimShown) {
+    if (!xIsDark) {
+      setSelected(lightBtn);
+    } else if (enabled) {
       setSelected(dimBtn);
     } else {
-      setSelected(isLightsOut() ? lightsOutBtn : defaultBtn);
+      setSelected(darkBtn);
     }
   }
 
-  function activateLightsOut() {
-    const dimBtn = document.getElementById(DIM_BTN_ID);
-    const radiogroup = dimBtn && dimBtn.closest('[role="radiogroup"]');
-    if (!radiogroup) {
+  function disableSystemTheme() {
+    const systemToggle = document.querySelector('input[type="checkbox"][role="switch"]');
+    if (systemToggle && systemToggle.checked) {
+      systemToggle.click();
+    }
+  }
+
+  function hideSystemToggle() {
+    const systemToggle = document.querySelector('input[type="checkbox"][role="switch"]');
+    const radiogroup = getRadioGroup();
+    if (!systemToggle || !radiogroup) {
       return;
     }
-    const buttons = radiogroup.querySelectorAll(":scope > div");
-    const lightsOutInput = buttons[buttons.length - 1].querySelector('input[type="radio"]');
-    if (lightsOutInput && !lightsOutInput.checked) {
-      switchingToLightsOut = true;
-      lightsOutInput.click();
-      setTimeout(() => {
-        switchingToLightsOut = false;
-      }, 300);
+    let row = systemToggle;
+    while (row.parentElement && !row.parentElement.contains(radiogroup)) {
+      row = row.parentElement;
     }
+    if (!row.contains(radiogroup)) {
+      row.style.display = "none";
+    }
+  }
+
+  function chooseMode(mode) {
+    disableSystemTheme();
+    const xCards = getRadioGroup().querySelectorAll(":scope > div");
+    const xCard = mode === "light" ? xCards[0] : xCards[xCards.length - 1];
+    const xInput = xCard.querySelector('input[type="radio"]');
+    if (xInput && !xInput.checked) {
+      xInput.click();
+    }
+    setEnabled(mode === "dim");
+  }
+
+  function injectSlider() {
+    const dimBtn = document.getElementById(DIM_BTN_ID);
+    if (!dimBtn || document.getElementById(SLIDER_ID)) {
+      return;
+    }
+    const referenceText = getComputedStyle(dimBtn.querySelector("span"));
+    const wrap = document.createElement("div");
+    wrap.id = SLIDER_ID;
+    wrap.style.cssText = `display: flex; align-items: center; gap: 12px; padding: 12px 16px; font-size: 15px; font-family: ${referenceText.fontFamily}; color: var(--xdm-text, rgb(113, 118, 123));`;
+
+    const label = document.createElement("span");
+    label.textContent = "Dim intensity";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = "0";
+    range.max = "100";
+    range.step = "1";
+    range.value = String(level);
+    range.style.cssText = `flex: 1; accent-color: ${ACCENT};`;
+
+    const readout = document.createElement("span");
+    readout.style.cssText = "min-width: 40px; text-align: right;";
+    readout.textContent = `${level}%`;
+
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.textContent = "Default";
+    resetBtn.style.cssText = "padding: 4px 12px; border: 1px solid currentColor; border-radius: 9999px; background: transparent; color: inherit; font: inherit; cursor: pointer;";
+
+    range.addEventListener("input", () => {
+      readout.textContent = `${range.value}%`;
+      setLevel(Number(range.value), false);
+    });
+    range.addEventListener("change", () => setLevel(Number(range.value), true));
+    resetBtn.addEventListener("click", () => {
+      range.value = String(DIM_LEVEL);
+      readout.textContent = `${DIM_LEVEL}%`;
+      setLevel(DIM_LEVEL, true);
+    });
+
+    wrap.append(label, range, readout, resetBtn);
+    dimBtn.closest('[role="radiogroup"]').insertAdjacentElement("afterend", wrap);
+    syncSettingsButtons();
   }
 
   function tryInjectDimOption() {
     injectFrame = 0;
-    if (document.getElementById(DIM_BTN_ID) || !location.pathname.startsWith("/settings")) {
+    if (!location.pathname.startsWith("/settings")) {
+      return;
+    }
+    injectPicker();
+    injectSlider();
+    hideSystemToggle();
+  }
+
+  function cloneCard(sourceCard) {
+    const card = sourceCard.cloneNode(true);
+    card.removeAttribute("id");
+    for (const el of card.querySelectorAll("[id]")) {
+      el.removeAttribute("id");
+    }
+    const input = card.querySelector('input[type="radio"]');
+    if (input) {
+      input.name = "x-dim-picker";
+      input.checked = false;
+    }
+    return card;
+  }
+
+  function injectPicker() {
+    if (document.getElementById(PICKER_ID)) {
       return;
     }
     const radiogroup = getRadioGroup();
     if (!radiogroup) {
       return;
     }
-    const buttons = radiogroup.querySelectorAll(":scope > div");
-    if (buttons.length < 2) {
+    const xCards = radiogroup.querySelectorAll(":scope > div");
+    if (xCards.length < 2) {
       return;
     }
-    const defaultBtn = buttons[0];
-    const lightsOutBtn = buttons[buttons.length - 1];
 
-    const dimBtn = lightsOutBtn.cloneNode(true);
+    const lightBtn = cloneCard(xCards[0]);
+    const dimBtn = cloneCard(xCards[xCards.length - 1]);
+    const darkBtn = cloneCard(xCards[xCards.length - 1]);
+
     dimBtn.id = DIM_BTN_ID;
-    dimBtn.style.backgroundColor = "rgb(21, 32, 43)";
-    const label = dimBtn.querySelector("span");
-    if (label) {
-      label.textContent = "Dim";
+    dimBtn.style.setProperty("background-color", "rgb(21, 32, 43)", "important");
+    darkBtn.style.setProperty("background-color", "rgb(0, 0, 0)", "important");
+    const lightLabel = lightBtn.querySelector("span");
+    if (lightLabel) {
+      lightLabel.textContent = "Light";
     }
-    const input = dimBtn.querySelector('input[type="radio"]');
-    if (input) {
-      input.setAttribute("aria-label", "Dim");
-      input.checked = false;
+    const dimLabel = dimBtn.querySelector("span");
+    if (dimLabel) {
+      dimLabel.textContent = "Dim";
     }
-    radiogroup.insertBefore(dimBtn, lightsOutBtn);
-
-    dimBtn.addEventListener("click", () => {
-      setEnabled(true);
-      activateLightsOut();
-    });
-    for (const nativeBtn of [defaultBtn, lightsOutBtn]) {
-      nativeBtn.addEventListener("click", () => {
-        if (!switchingToLightsOut) {
-          setEnabled(false);
-        }
-      });
+    const dimInput = dimBtn.querySelector('input[type="radio"]');
+    if (dimInput) {
+      dimInput.setAttribute("aria-label", "Dim");
     }
 
+    const picker = radiogroup.cloneNode(false);
+    picker.id = PICKER_ID;
+    picker.append(lightBtn, dimBtn, darkBtn);
+    lightBtn.addEventListener("click", () => chooseMode("light"));
+    dimBtn.addEventListener("click", () => chooseMode("dim"));
+    darkBtn.addEventListener("click", () => chooseMode("dark"));
+
+    radiogroup.insertAdjacentElement("afterend", picker);
+    radiogroup.style.display = "none";
+    disableSystemTheme();
     syncSettingsButtons();
   }
 
@@ -436,22 +631,32 @@
     if (!injectFrame) {
       injectFrame = requestAnimationFrame(tryInjectDimOption);
     }
-    if (!bodyObserver) {
-      startBodyObserver();
-    }
+    observeBodyStyle();
     refresh();
   }
 
   refresh();
+  observeBodyStyle();
 
   new MutationObserver(onDomMutations).observe(root, { childList: true, subtree: true });
-  startBodyObserver();
+  observeRootAttributes();
 
   GM_addValueChangeListener(STORAGE_KEY, (key, oldValue, newValue, remote) => {
     if (remote) {
       enabled = Boolean(newValue);
       refresh();
       syncSettingsButtons();
+    }
+  });
+
+  GM_addValueChangeListener(LEVEL_KEY, (key, oldValue, newValue, remote) => {
+    if (remote) {
+      setLevel(Number(newValue), false);
+      const range = document.querySelector(`#${SLIDER_ID} input`);
+      if (range) {
+        range.value = String(newValue);
+        range.nextElementSibling.textContent = `${newValue}%`;
+      }
     }
   });
 
